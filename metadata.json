@@ -1,0 +1,6 @@
+{
+  "name": "Top Movies",
+  "description": "Stream & explore top movies and TV shows powered by TMDB with trailers and rankings.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
