@@ -151,4 +151,82 @@ class MovieRepository(
         } catch (_: Exception) {
         }
     }
+
+    fun getFallbackMovies(): List<MediaItem> {
+        return listOf(
+            MediaItem(
+                id = 99901,
+                title = "Masterplan",
+                overview = "When a legendary thief sets his sights on the Mona Lisa, he recruits two young strangers to help him before revealing they are long-lost siblings... and oh yes, by the way, he is their father. Thrown into a chaotic reunion they never asked for, this new family must learn to work together — and try not to kill each other in the process.",
+                posterPath = "/ujUwzNV8ZkOzZonvhhHsc9KOKDf.jpg",
+                backdropPath = "/ujUwzNV8ZkOzZonvhhHsc9KOKDf.jpg",
+                releaseDate = "2026-01-01",
+                voteAverage = 7.0,
+                mediaType = "movie"
+            ),
+            MediaItem(
+                id = 99902,
+                title = "Tenzing",
+                overview = "The historic expedition of Tenzing Norgay and Sir Edmund Hillary conquering Mount Everest.",
+                posterPath = "/fM5L8ZqB7H8YVw7zFq2Jm9X8e1L.jpg",
+                backdropPath = "/fM5L8ZqB7H8YVw7zFq2Jm9X8e1L.jpg",
+                releaseDate = "2026-03-12",
+                voteAverage = 8.0,
+                mediaType = "movie"
+            ),
+            MediaItem(
+                id = 99903,
+                title = "Crystal Lake",
+                overview = "A terrifying deep dive into the haunted waters and tragic legends of Crystal Lake.",
+                posterPath = "/bAO1q8V1d5P3e5T4g6M7r2N9k8.jpg",
+                backdropPath = "/bAO1q8V1d5P3e5T4g6M7r2N9k8.jpg",
+                releaseDate = "2026-04-18",
+                voteAverage = 8.2,
+                mediaType = "movie"
+            ),
+            MediaItem(
+                id = 99904,
+                title = "VisionQuest",
+                overview = "A mind-bending journey of technology and human destiny in a futuristic metropolis.",
+                posterPath = "/a7K3h1L9z4m5B2c8X6p7D1e0Q9.jpg",
+                backdropPath = "/a7K3h1L9z4m5B2c8X6p7D1e0Q9.jpg",
+                releaseDate = "2026-05-22",
+                voteAverage = 9.0,
+                mediaType = "movie"
+            ),
+            MediaItem(
+                id = 99905,
+                title = "Hope",
+                overview = "In the remote village of Hope Harbor, investigators confront an unknown presence emerging from the dark forest.",
+                posterPath = "/ujUwzNV8ZkOzZonvhhHsc9KOKDf.jpg",
+                backdropPath = "/ujUwzNV8ZkOzZonvhhHsc9KOKDf.jpg",
+                releaseDate = "2026-06-15",
+                voteAverage = 7.9,
+                mediaType = "movie"
+            )
+        )
+    }
+
+    fun getFallbackDetail(id: Long): MediaDetail {
+        val base = getFallbackMovies().firstOrNull { it.id == id } ?: getFallbackMovies().first()
+        return MediaDetail(
+            id = base.id,
+            title = base.title,
+            name = base.name,
+            overview = base.overview,
+            runtime = 110,
+            releaseDate = base.releaseDate,
+            voteAverage = base.voteAverage,
+            posterPath = base.posterPath,
+            backdropPath = base.backdropPath,
+            genres = listOf(
+                com.example.data.model.Genre(1, "Action"),
+                com.example.data.model.Genre(2, "Thriller")
+            ),
+            similar = com.example.data.model.TmdbPagedResponse(
+                page = 1,
+                results = getFallbackMovies().filter { it.id != base.id }
+            )
+        )
+    }
 }

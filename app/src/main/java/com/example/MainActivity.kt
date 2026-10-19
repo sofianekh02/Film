@@ -17,6 +17,7 @@ import com.example.ui.components.VideoPlayerDialog
 import com.example.ui.screens.DetailScreen
 import com.example.ui.screens.HomeScreen
 import com.example.ui.screens.SearchScreen
+import com.example.ui.screens.StreamLinksScreen
 import com.example.ui.screens.WatchlistScreen
 import com.example.ui.theme.BackgroundDark
 import com.example.ui.theme.MyApplicationTheme
@@ -29,7 +30,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        try {
+            enableEdgeToEdge()
+        } catch (_: Throwable) {
+        }
         setContent {
             MyApplicationTheme {
                 MainAppContent(viewModel = viewModel)
@@ -44,9 +48,11 @@ fun MainAppContent(viewModel: MoviesViewModel) {
     val homeUiState by viewModel.homeUiState.collectAsStateWithLifecycle()
     val detailUiState by viewModel.detailUiState.collectAsStateWithLifecycle()
     val searchUiState by viewModel.searchUiState.collectAsStateWithLifecycle()
+    val streamLinksUiState by viewModel.streamLinksUiState.collectAsStateWithLifecycle()
     val watchlist by viewModel.watchlist.collectAsStateWithLifecycle()
     val currentLanguage by viewModel.currentLanguage.collectAsStateWithLifecycle()
     val activeVideoKey by viewModel.activeVideoKey.collectAsStateWithLifecycle()
+    val activeDirectUrl by viewModel.activeDirectUrl.collectAsStateWithLifecycle()
     val activeVideoTitle by viewModel.activeVideoTitle.collectAsStateWithLifecycle()
 
     var showMenuSheet by remember { mutableStateOf(false) }
@@ -86,10 +92,7 @@ fun MainAppContent(viewModel: MoviesViewModel) {
                     onBackClick = { viewModel.navigateToHome() },
                     onToggleFavorite = { viewModel.toggleFavoriteCurrent() },
                     onPlayClick = {
-                        val detail = detailUiState.mediaDetail
-                        if (detail != null) {
-                            viewModel.playVideo(detail.youtubeTrailerKey, detail.displayTitle)
-                        }
+                        viewModel.openStreamScreenFromDetail()
                     },
                     onWatchTrailerClick = {
                         val detail = detailUiState.mediaDetail
@@ -98,6 +101,19 @@ fun MainAppContent(viewModel: MoviesViewModel) {
                         }
                     },
                     onSimilarClick = { item -> viewModel.navigateToDetail(item) }
+                )
+            }
+
+            AppScreen.STREAM_LINKS -> {
+                StreamLinksScreen(
+                    uiState = streamLinksUiState,
+                    onBackClick = { viewModel.navigateToHome() },
+                    onLinkClick = { link ->
+                        viewModel.playDirectStream(link.url, link.title)
+                    },
+                    onSearchAgain = { query ->
+                        viewModel.loadDramaLinks(query)
+                    }
                 )
             }
 
@@ -135,9 +151,10 @@ fun MainAppContent(viewModel: MoviesViewModel) {
         }
 
         // In-App Video & Trailer Player
-        if (activeVideoKey != null) {
+        if (activeVideoKey != null || activeDirectUrl != null) {
             VideoPlayerDialog(
                 videoKey = activeVideoKey,
+                directUrl = activeDirectUrl,
                 title = activeVideoTitle,
                 onDismiss = { viewModel.closeVideoPlayer() }
             )

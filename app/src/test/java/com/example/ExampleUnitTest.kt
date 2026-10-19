@@ -13,4 +13,10 @@ class ExampleUnitTest {
   fun addition_isCorrect() {
     assertEquals(4, 2 + 2)
   }
+
+  @Test
+  fun testApiClientInit() {
+    val service = com.example.data.api.ApiClient.tmdbService
+    assertNotNull(service)
+  }
 }

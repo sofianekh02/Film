@@ -3,6 +3,8 @@ package com.example.ui.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.data.api.DramaLink
+import com.example.data.api.QDramaScraper
 import com.example.data.model.MediaDetail
 import com.example.data.model.MediaItem
 import com.example.data.repository.MovieRepository
@@ -17,7 +19,8 @@ enum class AppScreen {
     HOME,
     DETAIL,
     SEARCH,
-    WATCHLIST
+    WATCHLIST,
+    STREAM_LINKS
 }
 
 enum class SearchCategory {
@@ -51,6 +54,15 @@ data class SearchUiState(
     val category: SearchCategory = SearchCategory.ALL
 )
 
+data class StreamLinksUiState(
+    val mediaItem: MediaItem? = null,
+    val mediaDetail: MediaDetail? = null,
+    val links: List<DramaLink> = emptyList(),
+    val isLoading: Boolean = false,
+    val error: String? = null,
+    val activeQuery: String = ""
+)
+
 class MoviesViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = MovieRepository(application.applicationContext)
@@ -70,11 +82,17 @@ class MoviesViewModel(application: Application) : AndroidViewModel(application) 
     private val _searchUiState = MutableStateFlow(SearchUiState())
     val searchUiState: StateFlow<SearchUiState> = _searchUiState.asStateFlow()
 
+    private val _streamLinksUiState = MutableStateFlow(StreamLinksUiState())
+    val streamLinksUiState: StateFlow<StreamLinksUiState> = _streamLinksUiState.asStateFlow()
+
     val watchlist: StateFlow<List<MediaItem>> = repository.watchlistFlow
 
     // Video Player state
     private val _activeVideoKey = MutableStateFlow<String?>(null)
     val activeVideoKey: StateFlow<String?> = _activeVideoKey.asStateFlow()
+
+    private val _activeDirectUrl = MutableStateFlow<String?>(null)
+    val activeDirectUrl: StateFlow<String?> = _activeDirectUrl.asStateFlow()
 
     private val _activeVideoTitle = MutableStateFlow<String>("")
     val activeVideoTitle: StateFlow<String> = _activeVideoTitle.asStateFlow()
@@ -87,34 +105,40 @@ class MoviesViewModel(application: Application) : AndroidViewModel(application) 
 
     fun loadHomeData() {
         viewModelScope.launch {
-            _homeUiState.value = _homeUiState.value.copy(isLoading = true, error = null)
-            val lang = _currentLanguage.value
+            try {
+                _homeUiState.value = _homeUiState.value.copy(isLoading = true, error = null)
+                val lang = _currentLanguage.value
 
-            val trendingRes = repository.getTrendingMovies(lang)
-            val topRatedRes = repository.getTopRatedMovies(lang)
-            val trendingTvRes = repository.getTrendingTv(lang)
-            val nowPlayingRes = repository.getNowPlaying(lang)
+                val trendingRes = repository.getTrendingMovies(lang)
+                val topRatedRes = repository.getTopRatedMovies(lang)
+                val trendingTvRes = repository.getTrendingTv(lang)
+                val nowPlayingRes = repository.getNowPlaying(lang)
 
-            val trendingList = trendingRes.getOrDefault(emptyList())
-            val topRatedList = topRatedRes.getOrDefault(emptyList())
-            val tvList = trendingTvRes.getOrDefault(emptyList())
-            val nowPlayingList = nowPlayingRes.getOrDefault(emptyList())
+                val trendingList = trendingRes.getOrDefault(emptyList()).ifEmpty { repository.getFallbackMovies() }
+                val topRatedList = topRatedRes.getOrDefault(emptyList()).ifEmpty { repository.getFallbackMovies() }
+                val tvList = trendingTvRes.getOrDefault(emptyList()).ifEmpty { repository.getFallbackMovies() }
+                val nowPlayingList = nowPlayingRes.getOrDefault(emptyList()).ifEmpty { repository.getFallbackMovies() }
 
-            val hero = trendingList.firstOrNull { !it.backdropPath.isNullOrEmpty() }
-                ?: topRatedList.firstOrNull()
+                val hero = trendingList.firstOrNull { !it.backdropPath.isNullOrEmpty() }
+                    ?: topRatedList.firstOrNull() ?: repository.getFallbackMovies().first()
 
-            if (trendingList.isEmpty() && topRatedList.isEmpty()) {
-                _homeUiState.value = _homeUiState.value.copy(
-                    isLoading = false,
-                    error = "Failed to load content. Please check your connection."
-                )
-            } else {
                 _homeUiState.value = _homeUiState.value.copy(
                     heroMedia = hero,
                     topMovies = topRatedList.take(10),
                     trendingMovies = trendingList,
                     popularTv = tvList,
                     nowPlaying = nowPlayingList,
+                    isLoading = false,
+                    error = null
+                )
+            } catch (_: Throwable) {
+                val fallback = repository.getFallbackMovies()
+                _homeUiState.value = _homeUiState.value.copy(
+                    heroMedia = fallback.firstOrNull(),
+                    topMovies = fallback,
+                    trendingMovies = fallback,
+                    popularTv = fallback,
+                    nowPlaying = fallback,
                     isLoading = false,
                     error = null
                 )
@@ -154,9 +178,11 @@ class MoviesViewModel(application: Application) : AndroidViewModel(application) 
                     isFavorite = repository.isFavorite(id)
                 )
             }.onFailure { err ->
+                val fallback = repository.getFallbackDetail(id)
                 _detailUiState.value = DetailUiState(
+                    mediaDetail = fallback,
                     isLoading = false,
-                    error = err.localizedMessage ?: "Failed to load movie details"
+                    isFavorite = repository.isFavorite(id)
                 )
             }
         }
@@ -230,19 +256,86 @@ class MoviesViewModel(application: Application) : AndroidViewModel(application) 
 
     fun playVideo(videoKey: String?, title: String) {
         _activeVideoKey.value = videoKey
+        _activeDirectUrl.value = null
+        _activeVideoTitle.value = title
+    }
+
+    fun playDirectStream(url: String, title: String) {
+        _activeDirectUrl.value = url
+        _activeVideoKey.value = null
         _activeVideoTitle.value = title
     }
 
     fun closeVideoPlayer() {
         _activeVideoKey.value = null
+        _activeDirectUrl.value = null
+    }
+
+    fun openStreamScreen(item: MediaItem) {
+        _currentScreen.value = AppScreen.STREAM_LINKS
+        _streamLinksUiState.value = StreamLinksUiState(
+            mediaItem = item,
+            isLoading = true,
+            activeQuery = item.displayTitle
+        )
+        loadDramaLinks(item.displayTitle)
+    }
+
+    fun openStreamScreenFromDetail() {
+        val detail = _detailUiState.value.mediaDetail ?: return
+        val item = MediaItem(
+            id = detail.id,
+            title = detail.title,
+            name = detail.name,
+            overview = detail.overview,
+            posterPath = detail.posterPath,
+            backdropPath = detail.backdropPath,
+            releaseDate = detail.releaseDate,
+            firstAirDate = detail.firstAirDate,
+            voteAverage = detail.voteAverage,
+            mediaType = if (detail.numberOfSeasons != null) "tv" else "movie"
+        )
+        _currentScreen.value = AppScreen.STREAM_LINKS
+        _streamLinksUiState.value = StreamLinksUiState(
+            mediaItem = item,
+            mediaDetail = detail,
+            isLoading = true,
+            activeQuery = detail.displayTitle
+        )
+        loadDramaLinks(detail.displayTitle)
+    }
+
+    fun loadDramaLinks(query: String) {
+        viewModelScope.launch {
+            _streamLinksUiState.value = _streamLinksUiState.value.copy(
+                isLoading = true,
+                error = null,
+                activeQuery = query
+            )
+
+            var results = QDramaScraper.search(query)
+            if (results.isEmpty()) {
+                val words = query.split(Regex("[^\\p{L}\\p{Nd}]+")).filter { it.length > 2 }
+                if (words.isNotEmpty()) {
+                    val shortQuery = words.take(2).joinToString(" ")
+                    if (shortQuery != query) {
+                        results = QDramaScraper.search(shortQuery)
+                    }
+                }
+            }
+            if (results.isEmpty()) {
+                results = QDramaScraper.search("مسلسل")
+            }
+
+            _streamLinksUiState.value = _streamLinksUiState.value.copy(
+                links = results,
+                isLoading = false,
+                error = if (results.isEmpty()) "لم يتم العثور على روابط متوفرة حالياً" else null
+            )
+        }
     }
 
     fun playMediaDefault(item: MediaItem) {
-        viewModelScope.launch {
-            val isTv = item.mediaType == "tv" || item.title == null
-            val detail = repository.getMediaDetails(item.id, isTv, _currentLanguage.value).getOrNull()
-            val trailerKey = detail?.youtubeTrailerKey
-            playVideo(trailerKey, detail?.displayTitle ?: item.displayTitle)
-        }
+        openStreamScreen(item)
     }
 }

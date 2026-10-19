@@ -32,6 +32,7 @@ import com.example.ui.theme.BackgroundDark
 @Composable
 fun VideoPlayerDialog(
     videoKey: String?,
+    directUrl: String? = null,
     title: String,
     onDismiss: () -> Unit
 ) {
@@ -147,13 +148,21 @@ fun VideoPlayerDialog(
                                 settings.javaScriptEnabled = true
                                 settings.domStorageEnabled = true
                                 settings.mediaPlaybackRequiresUserGesture = false
-                                settings.pluginState = WebSettings.PluginState.ON
                                 settings.loadWithOverviewMode = true
                                 settings.useWideViewPort = true
+                                settings.userAgentString = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
                                 webChromeClient = WebChromeClient()
                                 webViewClient = WebViewClient()
-                                loadDataWithBaseURL("https://www.youtube.com", htmlContent, "text/html", "UTF-8", null)
+                                if (!directUrl.isNullOrEmpty()) {
+                                    loadUrl(directUrl)
+                                } else {
+                                    loadDataWithBaseURL("https://www.youtube.com", htmlContent, "text/html", "UTF-8", null)
+                                }
                             }
+                        },
+                        onRelease = { webView ->
+                            webView.stopLoading()
+                            webView.destroy()
                         },
                         modifier = Modifier.fillMaxSize()
                     )
