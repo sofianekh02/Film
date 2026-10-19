@@ -44,16 +44,16 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun MainAppContent(viewModel: MoviesViewModel) {
-    val currentScreen by viewModel.currentScreen.collectAsStateWithLifecycle()
-    val homeUiState by viewModel.homeUiState.collectAsStateWithLifecycle()
-    val detailUiState by viewModel.detailUiState.collectAsStateWithLifecycle()
-    val searchUiState by viewModel.searchUiState.collectAsStateWithLifecycle()
-    val streamLinksUiState by viewModel.streamLinksUiState.collectAsStateWithLifecycle()
-    val watchlist by viewModel.watchlist.collectAsStateWithLifecycle()
-    val currentLanguage by viewModel.currentLanguage.collectAsStateWithLifecycle()
-    val activeVideoKey by viewModel.activeVideoKey.collectAsStateWithLifecycle()
-    val activeDirectUrl by viewModel.activeDirectUrl.collectAsStateWithLifecycle()
-    val activeVideoTitle by viewModel.activeVideoTitle.collectAsStateWithLifecycle()
+    val currentScreen by viewModel.currentScreen.collectAsState()
+    val homeUiState by viewModel.homeUiState.collectAsState()
+    val detailUiState by viewModel.detailUiState.collectAsState()
+    val searchUiState by viewModel.searchUiState.collectAsState()
+    val streamLinksUiState by viewModel.streamLinksUiState.collectAsState()
+    val watchlist by viewModel.watchlist.collectAsState()
+    val currentLanguage by viewModel.currentLanguage.collectAsState()
+    val activeVideoKey by viewModel.activeVideoKey.collectAsState()
+    val activeDirectUrl by viewModel.activeDirectUrl.collectAsState()
+    val activeVideoTitle by viewModel.activeVideoTitle.collectAsState()
 
     var showMenuSheet by remember { mutableStateOf(false) }
 
