@@ -21,7 +21,10 @@ class ExampleRobolectricTest {
 
   @Test
   fun `main activity launches successfully`() {
-    val controller = org.robolectric.Robolectric.buildActivity(MainActivity::class.java).setup()
-    org.junit.Assert.assertNotNull(controller.get())
+    androidx.test.core.app.ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+      scenario.onActivity { activity ->
+        org.junit.Assert.assertNotNull(activity)
+      }
+    }
   }
 }
